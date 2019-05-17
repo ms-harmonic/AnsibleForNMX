@@ -1,0 +1,13 @@
+---
+# Ansible playbook to Uninstall and Install NMX
+- hosts: all
+  tasks:
+    - name: Delete the old Ansible Log Directory.
+      win_file:
+        path: c:\Temp\AnsibleLogs
+        state: absent
+    - name: Create Log Directory  
+      win_file:
+        path: c:\Temp\AnsibleLogs
+        state: directory
+    - import_tasks: Install_Uninstall_NMX_Task.yml

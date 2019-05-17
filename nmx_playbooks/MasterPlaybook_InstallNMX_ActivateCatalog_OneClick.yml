@@ -1,0 +1,80 @@
+---
+# Ansible playbook to run Windows Update and restart, if required
+#
+# http://docs.ansible.com/ansible/win_updates_module.html
+# https://docs.ansible.com/ansible/win_reboot_module.html
+- hosts: all
+  vars:
+    hostname: shasha
+  tasks:
+    - set_fact:
+        catalogNameM: "{{catalog_url.split('/')[-1]}}"
+    - name: Delete the old Ansible Log Directory.
+      win_file:
+        path: c:\Temp\AnsibleLogs
+        state: absent
+    - name: Create Log Directory  
+      win_file:
+        path: c:\Temp\AnsibleLogs
+        state: directory
+    - name: Create DatabaseBkup Directory  
+      win_file:
+        path: c:\DatabaseBkup
+        state: directory
+    - name: Download catalog from specified URL
+      win_get_url:
+        url: "{{catalog_url}}"
+        dest: c:\DatabaseBkup\
+        url_username: "{{url_username}}"
+        url_password: "{{url_password}}"
+    - name: Copy the Catalog file to Temp
+      win_copy:
+        src: C:\DatabaseBkup\{{catalogNameM}}
+        dest: C:\temp\{{catalogNameM}}
+        remote_src: yes
+    - name: Rename the catalog file
+      win_command: cmd.exe /C rename C:\temp\{{catalogNameM}} TestAnsible1.zip
+    - name: Unzip the catalog to get metadataxml
+      win_unzip:
+        src: C:\temp\TestAnsible1.zip
+        dest: C:\temp\temp
+        rm: True
+    - name: Run shell command to read xml file and NMX version
+      win_shell: |
+        [xml]$xml = Get-Content C:\temp\temp\MetaData.xml
+        $xml.DatabaseList.Item.Info.CreatedBy
+      register: shell_result
+    - set_fact:
+        buildnumber: "{{shell_result.stdout_lines[0]}}"
+    - set_fact:
+        nmx_version: "trunk"
+      when: buildnumber.find("eng") != -1
+    - set_fact:
+        constructbuildnumber: "{{buildnumber.split('.')}}"
+    - set_fact:
+        nmx_version: "{{constructbuildnumber[0]}}.{{constructbuildnumber[1]}}.x.{{constructbuildnumber[3]}}"
+      when: buildnumber.find("eng") == -1
+    - set_fact:
+        buildnumber: "{{constructbuildnumber[0]}}.{{constructbuildnumber[1]}}.{{constructbuildnumber[2]}}.{{constructbuildnumber[3]}}.{{ constructbuildnumber[4] | regex_replace('^0', '')}}"
+    - name: Run shell command to read xml file and get Catalog Name
+      win_shell: |
+        [xml]$xml = Get-Content C:\temp\temp\MetaData.xml
+        $xml.DatabaseList.Item.Name
+      register: shell_result1
+    - set_fact:
+        actualCatalogName: "{{shell_result1.stdout_lines[0]}}"
+    - name: Delete the Unzipped folder
+      win_file:
+        path: C:\Temp\Temp
+        state: absent
+    - import_tasks: Install_Uninstall_NMX_Task_OneClick.yml
+      vars:
+        version: "{{nmx_version}}"
+        build_number: "{{buildnumber}}"
+        username: ""
+        password: ""
+        nmx_username: administrator
+        nmx_password: Harmonic2008
+    - import_tasks: ActivateCatalog_Task_OneClick.yml
+      vars:
+        catalogName: "{{actualCatalogName}}"

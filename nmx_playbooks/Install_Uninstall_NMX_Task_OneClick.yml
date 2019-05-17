@@ -1,0 +1,158 @@
+---
+# Ansible playbook to Uninstall and Install NMX
+  - name: Get active catalog name
+    win_reg_stat:
+      path: HKLM:\SOFTWARE\Harmonic\MEM
+      name: ServiceSQLServerDSN
+    register: ActiveCatalog
+  - name: Create NMXInstall.ini file
+    win_copy:
+      dest: C:\NMXInstall.ini
+      content: |
+        [Option]
+        SiteID={{SiteID}}
+        SQLServerName=localhost
+        Catalog={{ActiveCatalog.value}}
+        SQLServerBackupDir=C:\databasebkup
+    when: ActiveCatalog.exists==true
+  - name: Create NMXInstall.ini file
+    win_copy:
+      dest: C:\NMXInstall.ini
+      content: |
+        [Option]
+        SiteID={{SiteID}}
+        SQLServerName=localhost
+        Catalog=NMXDummyCatalog
+        SQLServerBackupDir=C:\databasebkup
+    when: ActiveCatalog.exists==false
+  - name: Create NMXUninstall.ini file
+    win_copy:
+      dest: C:\NMXUninstall.ini
+      content: |
+        ! QuickInstall, 0 - Proceed with uninstallation, 1 - Skip uninstallation.
+        ! 1 Silent Mode True, Any other value  - False.
+        [Mode]
+        Silent=1
+        QuickInstall=0
+  - name: Delete the NMX folder - Cleanup before downloading new build
+    win_file:
+      path: C:\Temp\nmx
+      state: absent
+  - name: Download NMX build from FTP with authentication
+    win_get_url:
+      url: "https://harmonicinc.box.com/shared/static/sqj2llqyszaf5psf6hmd7rvsyhre06uw.zip"
+      dest: c:\temp\nmx_build_output.zip
+      url_username: "{{username}}"
+      url_password: "{{password}}"
+  - name: Unzip the NMX build folder
+    win_unzip:
+      src: c:\temp\nmx_build_output.zip
+      dest: C:\temp\
+      rm: True
+  - name: check if NMX is already installed
+    win_reg_stat:
+      path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{0940EFBB-D1FC-4C6F-91E0-996D9E40B2A2}_is1
+    register: NMX_Installed
+  - name: Get the file name to uninstall from registry
+    win_reg_stat:
+      path: HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\{0940EFBB-D1FC-4C6F-91E0-996D9E40B2A2}_is1
+      name: UninstallString
+    register: uninstallStringFile
+    when: NMX_Installed is defined and NMX_Installed.exists==true
+  - name: Check if XMS is installed    
+    win_stat:
+      path: C:\Harmonic\XMS_GATEWAY\Scripts\Services\StopAllServices.bat
+    register: XMSdetails
+  - name: Prior to un-install stop the XM services
+    win_command: StopAllServices.bat C:\Harmonic\XMS_GATEWAY
+    args:
+      chdir: C:\Harmonic\XMS_GATEWAY\Scripts\Services\
+    when: XMSdetails.stat.exists == true
+  - name: Check if XMS service is installed
+    win_service:
+      name: XServer
+    register: XMSService
+  - name: Stop XMS service if it is running
+    win_service:
+      name: XServer
+      state: stopped
+    when: XMSService.exists==true and XMSService.state == "running"
+  - name: Kill Java Process related to XMS
+    win_shell: Stop-Process -Name "java" -Force
+    register: running_processes
+    failed_when: running_processes.rc == -1
+  - name: Kill NMX Validator Process
+    win_shell: Stop-Process -Name "NMXValidatorService" -Force
+    register: running_processes
+    failed_when: running_processes.rc == -1
+  - name: Kill NMXNG Server Process
+    win_shell: Stop-Process -Name "NmxNgServerController" -Force
+    register: running_processes
+    failed_when: running_processes.rc == -1
+  - name: Kill NMX Gateway Service
+    win_shell: Stop-Process -Name "HmNmxGatewayWinSvc" -Force
+    register: running_processes
+    failed_when: running_processes.rc == -1
+  - name: Kill NMX Debug Log Service
+    win_shell: Stop-Process -Name "HmDebugLogWinSvc" -Force
+    register: running_processes
+    failed_when: running_processes.rc == -1
+  - name: Uninstall NMX
+    win_package:
+        path: "{{ uninstallStringFile.value | regex_replace('^\"|\"$', '') }}"
+        product_id: '{0940EFBB-D1FC-4C6F-91E0-996D9E40B2A2}_is1'
+        arguments: /SP- /SILENT /SUPPRESSMSGBOXES /Log="c:\Temp\AnsibleLogs\UninstallLog.txt"
+        state: absent
+    when: NMX_Installed is defined and NMX_Installed.exists==true
+  - name: Setup Autologon for starting remote session after reboot
+    win_shell: C:\Utilities\Autologon.exe /accepteula "{{ nmx_username }}" . "{{ nmx_password }}"
+    when: NMX_Installed is defined and NMX_Installed.exists==true
+  - name: reboot system after un-install
+    win_reboot:
+      post_reboot_delay: 120	
+      reboot_timeout: 3600
+    when: NMX_Installed is defined and NMX_Installed.exists==true	
+  - name: Waiting for connection to come up
+    wait_for_connection:
+    when: NMX_Installed is defined and NMX_Installed.exists==true
+  - name: Check if XMS service is installed
+    win_service:
+      name: XServer
+    register: XMSService
+  - name: Stop XMS service if it is running
+    win_service:
+      name: XServer
+      state: stopped
+    when: XMSService.exists==true and XMSService.state == "running"
+  - name: Find the installation file
+    win_find:
+      paths: C:\Temp\nmx
+      patterns: ['*.exe']
+      recurse: True
+    register: resultFile
+  - name: Setup Autologon for starting remote session after reboot once installation is done
+    win_shell: C:\Utilities\Autologon.exe /accepteula "{{ nmx_username }}" . "{{ nmx_password }}"
+  - name: Install NMX
+    win_package:
+      path: "{{resultFile.files[0].path}}"
+      product_id: '{0940EFBB-D1FC-4C6F-91E0-996D9E40B2A2}_is1'
+      arguments: /SP- /SILENT /SUPPRESSMSGBOXES /NORESTART /Type=ClientAndServer /NDDS_DOMAINID="{{SiteID}}" /Log="c:\Temp\AnsibleLogs\InstallLog.txt"
+      state: present
+  - name: Reboot system after install
+    win_reboot:
+      post_reboot_delay: 180
+      reboot_timeout: 3600
+  - name: Waiting for connection to come up
+    wait_for_connection:
+  - name: Delete the NMX folder
+    win_file:
+      path: C:\Temp\nmx
+      state: absent
+  - name: Delete the ExtraUtilities folder if present
+    win_file:
+      path: C:\Temp\ExtraUtilities
+      state: absent
+  - name: Delete the nmx_playbooks folder if present
+    win_file:
+      path: C:\Temp\nmx_playbooks
+      state: absent

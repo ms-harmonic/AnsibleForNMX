@@ -1,0 +1,16 @@
+---
+# Ansible playbook to run Windows Update and restart, if required
+#
+# http://docs.ansible.com/ansible/win_updates_module.html
+# https://docs.ansible.com/ansible/win_reboot_module.html
+- hosts: all
+  tasks:
+    - name: Delete the old Ansible Log Directory.
+      win_file:
+        path: c:\Temp\AnsibleLogs
+        state: absent
+    - name: Create Log Directory  
+      win_file:
+        path: c:\Temp\AnsibleLogs
+        state: directory
+    - import_tasks: ActivateCatalog_Task.yml

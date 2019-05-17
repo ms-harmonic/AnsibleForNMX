@@ -1,0 +1,57 @@
+---
+# Ansible playbook to run Windows Update and restart, if required
+#
+# http://docs.ansible.com/ansible/win_updates_module.html
+# https://docs.ansible.com/ansible/win_reboot_module.html
+    - set_fact:
+        catalogName: "{{catalog_url.split('/')[-1]}}"
+      when: catalogName is not defined
+    - name: Download catalog from specified URL
+      win_get_url:
+        url: "{{catalog_url}}"
+        dest: c:\DatabaseBkup\
+        url_username: "{{url_username}}"
+        url_password: "{{url_password}}"
+    - name: Obtain information about a file
+      win_stat:
+        path: C:\Program Files\Harmonic\NMX\DOTNETGUI\AnsibleActivateCatalog.exe
+      register: file_info
+    - name: Delete the Activate Catalog File if already present
+      win_file:
+        path: C:\Program Files\Harmonic\NMX\DOTNETGUI\AnsibleActivateCatalog.exe
+        state: absent
+      when: file_info.stat.exists==true
+    - name: Download AnsibleActivateCatalog.exe
+      win_get_url:
+        url: "https://s3.amazonaws.com/demo-web-portal/nmx-ansible/AnsibleActivateCatalog.exe"
+        dest: C:\Program Files\Harmonic\NMX\DOTNETGUI\
+    - name: Obtain information about a file
+      win_stat:
+        path: C:\Program Files\Harmonic\NMX\DOTNETGUI\Interop.HLDOMAINMANAGERPROCESSLib.dll
+    - name: Check DMAgent Process
+      win_service:
+        name: HLDomainAgentProcess
+      register: DMAgentService
+    - name: Start DM Agent service 
+      win_service:
+        name: HLDomainAgentProcess
+        state: started
+      when: DMAgentService.exists==true and DMAgentService.state == "stopped"
+    - name: Wait approx 2 minute for server to start the Domain Maanger process
+      pause:
+        seconds: 150
+      when: DMAgentService.exists==true and DMAgentService.state == "stopped"
+    - name: Make catalog active
+      win_command: AnsibleActivateCatalog.exe {{catalogName}} {{sql_servername}} {{sql_password}} {{nmxIP}}
+      args:
+        chdir: C:\Program Files\Harmonic\NMX\DOTNETGUI\
+      register: catalogActivated
+      when: catalogName is defined
+    - name: Delete the Activate Catalog File if already present
+      win_file:
+        path: C:\Program Files\Harmonic\NMX\DOTNETGUI\AnsibleActivateCatalog.exe
+        state: absent
+    - name: Delete the Active Catalog folder
+      win_file:
+        path: C:\Temp\nmx_playbooks
+        state: absent

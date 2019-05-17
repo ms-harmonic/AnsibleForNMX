@@ -1,0 +1,71 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<!-- Link below is a guide on how to define ivy.xml -->
+<!-- https://confluence360.harmonicinc.com/x/Qosv -->
+
+<ivy-module version="2.0" xmlns:e="http://ant.apache.org/ivy/extra">
+	<!-- Define your module's information -->
+	<!-- More information on how to define info can be found in the link below -->
+	<!-- https://confluence360.harmonicinc.com/x/Qosv -->
+	<info
+		organisation="harmonic"
+		module="nmx_playbooks"
+		branch="trunk"
+		e:CDEmailList=""
+		e:Reviewers="mukesh.sahay@harmonicinc.com"
+	>
+            <ivyauthor name="mukesh.sahay@harmonicinc.com"/>
+        </info>
+
+	<!-- Define the configuration of your module, using the <conf> element -->
+	<!-- By default, we have the "default" configuration -->
+	<!-- More information on how to define configurations can be found in the link below -->
+	<!-- https://confluence360.harmonicinc.com/x/Qosv -->
+	<configurations>
+		<conf name="linux_x64" />
+		<conf name="linux_x64_dbg" />
+		<!-- Uncomment this section for the configurations for C/C++ module to enable code coverage
+		<conf name="linux_x64_bullseye" />
+		-->
+	</configurations>
+
+	<!-- Define the output of your module, using the <artifact> element -->
+	<!-- By default, you are required to publish at least one zip artifact with the name defined below -->
+	<!-- You can change the name of your zip artifact and add more artifacts as you wish -->
+	<!-- More information on how to define publications can be found in the link below -->
+	<!-- https://confluence360.harmonicinc.com/x/Qosv -->
+	<publications>
+		<artifact name="nmx_playbooks_output-linux_x64" ext="tgz" type="tgz" conf="linux_x64" />
+		<artifact name="nmx_playbooks_output-linux_x64_dbg" ext="tgz" type="tgz" conf="linux_x64_dbg" />
+		<!-- Uncomment this section for the configurations for C/C++ module to enable code coverage
+		<artifact name="nmx_playbooks_output-linux_x64_bullseye" ext="tgz" type="tgz" conf="linux_x64_bullseye" />
+		-->
+	</publications>
+	
+	<dependencies>
+		<!-- Uncomment the "dependencies" section below if your module requires artifacts from other modules -->
+		<!-- More information on how to define dependencies can be found in the link below -->
+		<!-- https://confluence360.harmonicinc.com/x/Qosv -->
+		<!--
+		<dependency
+			org="harmonic"
+			name="..."
+			branch="..."
+			rev="..."
+			conf="..."
+			transitive="false"
+		/>
+		-->
+		<!-- Uncomment this section for making dependency to CDE_CommonBuildCfgs
+		<dependency
+			org="harmonic"
+			name="CDE_CommonBuildCfgs"
+			branch="trunk"
+			rev="cmLatestTrunk()"
+			conf="*->@"
+			transitive="false"
+		/>
+		-->
+	</dependencies>
+
+</ivy-module>

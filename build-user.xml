@@ -1,0 +1,107 @@
+<!-- Link below is a guide on how to define build-user.xml -->
+<!-- https://confluence360.harmonicinc.com/x/VwMY -->
+
+<target name="userBuild">
+
+	<!-- Define how the module will be compiled -->
+	<!-- When failonerror="true", if the executable return code signaling a failure (OS specific), the build will be terminated -->
+	<!-- Normally, any non-zero return code denotes failure -->
+	<!-- More information can be found in the link below -->
+	<!-- https://confluence360.harmonicinc.com/x/VwMY -->
+	<exec executable="sh" dir="${ivy.module}" failonerror="true">
+		<arg value="-c" />
+		<arg value="make" />
+	</exec>
+
+	<!-- Template for GYP-based modules to do compilation -->
+	<!-- Uncomment this section for GYP-based modules -->
+	<!--
+	<ant antfile="CDE_CommonBuildCfgs/common-build-user.xml" target="execGyp"/>
+	<ant antfile="CDE_CommonBuildCfgs/common-build-user.xml" target="make_linux_x64"/>
+	<ant antfile="CDE_CommonBuildCfgs/common-build-user.xml" target="make_linux_x64_dbg"/>
+	-->
+
+	<!-- Define what files will be tar-gzip in the artifact declared in "ivyArtifactName" using filelist / fileset / dirset -->
+	<!-- More information can be found in the link below -->
+	<!-- https://confluence360.harmonicinc.com/x/VwMY -->
+	<CmPublish ivyArtifactName="nmx_playbooks_output-linux_x64">
+		<path>
+			<!-- Example on how to use filelist can be found in the link below -->
+			<!-- http://ant.apache.org/manual/Types/filelist.html -->
+			<!--
+			<filelist dir="${ivy.module}/output">
+				<file name="${ivy.module}.so" />
+			</filelist>
+			-->
+			
+			<!-- Example on how to use fileset can be found in the link below -->
+			<!-- http://ant.apache.org/manual/Types/fileset.html -->
+			<!--
+			<fileset dir="${ivy.module}/output">
+				<include name="*.so" />
+			</fileset>
+			-->
+			
+			<!-- Example on how to use dirset can be found in the link below -->
+			<!-- http://ant.apache.org/manual/Types/dirset.html -->
+			<!--
+			<dirset dir="${ivy.module}/output">
+				<include name="release" />
+			</dirset>
+			-->
+		</path>
+	</CmPublish>
+
+	<CmPublish ivyArtifactName="nmx_playbooks_output-linux_x64_dbg">
+		<path>
+			<!-- Example on how to use filelist can be found in the link below -->
+			<!-- http://ant.apache.org/manual/Types/filelist.html -->
+			<!--
+			<filelist dir="${ivy.module}/output">
+				<file name="${ivy.module}.so" />
+			</filelist>
+			-->
+			
+			<!-- Example on how to use fileset can be found in the link below -->
+			<!-- http://ant.apache.org/manual/Types/fileset.html -->
+			<!--
+			<fileset dir="${ivy.module}/output">
+				<include name="*.so" />
+			</fileset>
+			-->
+			
+			<!-- Example on how to use dirset can be found in the link below -->
+			<!-- http://ant.apache.org/manual/Types/dirset.html -->
+			<!--
+			<dirset dir="${ivy.module}/output">
+				<include name="release" />
+			</dirset>
+			-->
+		</path>
+	</CmPublish>
+
+</target>
+
+<!-- Remove this remark for the build target template for C/C++ module to enable code coverage
+<target name="linux_x64_bullseye" extensionOf="userBuildBullseye">
+	<!- Clean ->
+	<delete dir="${ivy.module}/out/linux_x64_dbg"/>
+	<!- Build Instrumented binary ->
+	<CmBullseyeCodeCoverageSwitch coverage="true" selectionFile="regions.txt"/>
+	<ant antfile="CDE_CommonBuildCfgs/common-build-user.xml" target="make_linux_x64_dbg"/>
+	<CmBullseyeCodeCoverageSwitch coverage="false" />
+	<!- Publish ->
+	<mkdir dir="${ivy.module}/cov-linux" />
+	<move file="${Cm.Bullseye.Covfile}" todir="${ivy.module}/cov-linux" />
+	<CmPublish ivyArtifactName="nmx_playbooks_output-linux_x64_bullseye">
+		<path>
+			<dirset dir="${ivy.module}/out">
+				<include name="linux_x64_dbg" />
+			</dirset>
+			<fileset dir="${ivy.module}/cov-linux">
+				<include name="*.cov" />
+			</fileset>
+		</path>
+	</CmPublish>
+</target>
+-->

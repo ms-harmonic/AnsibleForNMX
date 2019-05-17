@@ -1,0 +1,81 @@
+---
+# Ansible playbook to run Windows Update and restart, if required
+#
+# http://docs.ansible.com/ansible/win_updates_module.html
+# https://docs.ansible.com/ansible/win_reboot_module.html
+    - set_fact:
+        catalogName: "{{catalog_url.split('/')[-1]}}"
+      when: catalogName is not defined
+    - name: Download catalog from specified URL
+      win_get_url:
+        url: "{{catalog_url}}"
+        dest: c:\DatabaseBkup\
+        url_username: "{{url_username}}"
+        url_password: "{{url_password}}"
+    - name: Obtain information about a file
+      win_stat:
+        path: C:\Program Files\Harmonic\NMX\DOTNETGUI\AnsibleActivateCatalog.exe
+      register: file_info
+    - name: Delete the Activate Catalog File if already present
+      win_file:
+        path: C:\Program Files\Harmonic\NMX\DOTNETGUI\AnsibleActivateCatalog.exe
+        state: absent
+      when: file_info.stat.exists==true
+    - name: Download AnsibleActivateCatalog.exe
+      win_get_url:
+        url: "https://bitbucket360.harmonicinc.com/rest/api/latest/projects/NMXGROUP/repos/nmx_playbooks/archive?format=zip"
+        dest: C:\temp\AnsibleActivateCatalog.zip
+        force_basic_auth: yes
+        url_username: "{{ git_username }}"
+        url_password: "{{ git_password }}"
+    - name: Unzip the Download ActivateCatalog zip
+      win_unzip:
+        src: c:\temp\AnsibleActivateCatalog.zip
+        dest: C:\temp\
+        rm: True
+    - name: Find the Activate Catalog file
+      win_find:
+        paths: C:\Temp\nmx_playbooks
+        patterns: ['*.exe']
+        recurse: True
+      register: resultFile
+    - name: Copy the Activate Catalog file
+      win_copy:
+        src: "{{resultFile.files[0].path}}"
+        dest: C:\Program Files\Harmonic\NMX\DOTNETGUI\
+        remote_src: yes
+    - name: Obtain information about a file
+      win_stat:
+        path: C:\Program Files\Harmonic\NMX\DOTNETGUI\Interop.HLDOMAINMANAGERPROCESSLib.dll
+#    - name: Make catalog active
+#      win_package:
+#        path: C:\Program Files\Harmonic\NMX\DOTNETGUI\AnsibleActivateCatalog.exe
+#        product_id: ConsoleApp
+#        arguments: /{{catalogName}} /{{sql_servername}} /{{sql_password}} /{{ansible_host}}
+    - name: Check DMAgent Process
+      win_service:
+        name: HLDomainAgentProcess
+      register: DMAgentService
+    - name: Start DM Agent service 
+      win_service:
+        name: HLDomainAgentProcess
+        state: started
+      when: DMAgentService.exists==true and DMAgentService.state == "stopped"
+    - name: Wait approx 2 minute for server to start the Domain Maanger process
+      pause:
+        seconds: 150
+      when: DMAgentService.exists==true and DMAgentService.state == "stopped"
+    - name: Make catalog active
+      win_command: AnsibleActivateCatalog.exe {{catalogName}} {{sql_servername}} {{sql_password}} {{ansible_host}}
+      args:
+        chdir: C:\Program Files\Harmonic\NMX\DOTNETGUI\
+      register: catalogActivated
+      when: catalogName is defined
+    - name: Delete the Activate Catalog File if already present
+      win_file:
+        path: C:\Program Files\Harmonic\NMX\DOTNETGUI\AnsibleActivateCatalog.exe
+        state: absent
+    - name: Delete the Active Catalog folder
+      win_file:
+        path: C:\Temp\nmx_playbooks
+        state: absent
