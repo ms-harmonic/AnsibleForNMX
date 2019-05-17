@@ -15,7 +15,7 @@
     - set_fact:
         catalogNameM: "{{catalog_url.split('/')[-1]}}"
     - name: Rename the catalog file
-      win_command: cmd.exe /C rename C:\temp\{{catalogNameM}} catalogName
+      win_command: cmd.exe /C rename C:\DatabaseBkup\{{catalogNameM}} catalogName
     - name: Obtain information about a file
       win_stat:
         path: C:\Program Files\Harmonic\NMX\DOTNETGUI\AnsibleActivateCatalog.exe
